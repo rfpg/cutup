@@ -690,7 +690,9 @@
 
     <script>
         const GUTENDEX_URL = 'https://gutendex.com/books';
-        const SENTIMENT_API_URL = 'https://text-sentiment.p.rapidapi.com/analyze';
+        // Using Twinword Sentiment Analysis API - better free tier limits
+        const SENTIMENT_API_URL = 'https://twinword-sentiment-analysis.p.rapidapi.com/analyze/';
+        const SENTIMENT_API_HOST = 'sentiment-analysis.p.rapidapi.com';
         
         const state = {
             selectedBooks: [],
@@ -919,20 +921,24 @@
                 return { error: 'No API key provided. Enter your RapidAPI key above to enable sentiment analysis.' };
             }
 
+            // Truncate text if too long (API limits)
+            const truncatedText = text.length > 1000 ? text.substring(0, 1000) : text;
+
             try {
-                const response = await fetch(SENTIMENT_API_URL, {
-                    method: 'POST',
+                const response = await fetch(SENTIMENT_API_URL + '?text=' + encodeURIComponent(truncatedText), {
+                    method: 'GET',
                     headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
                         'X-RapidAPI-Key': apiKey,
-                        'X-RapidAPI-Host': 'text-sentiment.p.rapidapi.com'
-                    },
-                    body: `text=${encodeURIComponent(text)}`
+                        'X-RapidAPI-Host': SENTIMENT_API_HOST
+                    }
                 });
 
                 if (!response.ok) {
                     if (response.status === 401 || response.status === 403) {
                         return { error: 'Invalid API key. Please check your RapidAPI key.' };
+                    }
+                    if (response.status === 429) {
+                        return { error: 'Rate limit exceeded. Please wait a moment and try again, or check your RapidAPI subscription.' };
                     }
                     return { error: `API error: ${response.status}` };
                 }
@@ -962,43 +968,43 @@
                 return;
             }
 
-            // Parse the response - handle different API response formats
-            const sentiment = result.sentiment || result.label || result.type || 'neutral';
-            const posScore = result.pos_percent || result.positive || result.pos || 0;
-            const negScore = result.neg_percent || result.negative || result.neg || 0;
-            const confidence = result.confidence || result.score || result.ratio || Math.max(posScore, negScore);
+            // Twinword API response format:
+            // { type: "positive"/"negative"/"neutral", score: -1 to 1, ratio: 0 to 1 }
+            const sentiment = result.type || 'neutral';
+            const score = result.score || 0; // -1 (negative) to 1 (positive)
+            const ratio = result.ratio || 0; // confidence 0 to 1
 
             // Update badge
             const sentimentText = sentiment.charAt(0).toUpperCase() + sentiment.slice(1);
             sentimentBadge.textContent = sentimentText;
             
-            if (sentiment.toLowerCase().includes('pos')) {
+            if (sentiment.toLowerCase() === 'positive') {
                 sentimentBadge.className = 'sentiment-badge positive';
-            } else if (sentiment.toLowerCase().includes('neg')) {
+            } else if (sentiment.toLowerCase() === 'negative') {
                 sentimentBadge.className = 'sentiment-badge negative';
             } else {
                 sentimentBadge.className = 'sentiment-badge neutral';
             }
 
-            // Update meter
-            let posPercent = typeof posScore === 'string' ? parseFloat(posScore) : (posScore > 1 ? posScore : posScore * 100);
-            let negPercent = typeof negScore === 'string' ? parseFloat(negScore) : (negScore > 1 ? negScore : negScore * 100);
-            
-            positiveFill.style.width = `${Math.min(posPercent / 2, 50)}%`;
-            negativeFill.style.width = `${Math.min(negPercent / 2, 50)}%`;
+            // Update meter based on score (-1 to 1)
+            // Positive scores fill right, negative scores fill left
+            if (score >= 0) {
+                positiveFill.style.width = `${Math.min(score * 50, 50)}%`;
+                negativeFill.style.width = '0%';
+            } else {
+                positiveFill.style.width = '0%';
+                negativeFill.style.width = `${Math.min(Math.abs(score) * 50, 50)}%`;
+            }
 
             // Update stats
-            const confDisplay = typeof confidence === 'number' 
-                ? (confidence > 1 ? `${confidence.toFixed(1)}%` : `${(confidence * 100).toFixed(1)}%`)
-                : confidence;
-            confidenceValue.textContent = confDisplay;
+            confidenceValue.textContent = `${(ratio * 100).toFixed(1)}%`;
             
-            positiveValue.textContent = typeof posScore === 'number' 
-                ? (posScore > 1 ? `${posScore.toFixed(1)}%` : `${(posScore * 100).toFixed(1)}%`)
-                : posScore;
-            negativeValue.textContent = typeof negScore === 'number' 
-                ? (negScore > 1 ? `${negScore.toFixed(1)}%` : `${(negScore * 100).toFixed(1)}%`)
-                : negScore;
+            // Calculate positive/negative from score
+            const posPercent = score > 0 ? score * 100 : 0;
+            const negPercent = score < 0 ? Math.abs(score) * 100 : 0;
+            
+            positiveValue.textContent = `${posPercent.toFixed(1)}%`;
+            negativeValue.textContent = `${negPercent.toFixed(1)}%`;
         }
 
         // Generate remix
