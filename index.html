@@ -1,0 +1,1203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Cut-Up Machine</title>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --ink: #1a1a1a;
+            --paper: #f5f1e8;
+            --aged-paper: #ebe5d6;
+            --accent: #8b0000;
+            --faded: #6b6356;
+            --highlight: #fef3c7;
+            --positive: #166534;
+            --negative: #991b1b;
+            --neutral: #6b7280;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Playfair Display', Georgia, serif;
+            background: var(--paper);
+            color: var(--ink);
+            min-height: 100vh;
+            background-image: 
+                url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%' height='100%' filter='url(%23noise)'/%3E%3C/svg%3E");
+            background-blend-mode: soft-light;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 3rem 2rem;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 4rem;
+            position: relative;
+        }
+
+        header::before {
+            content: "✂";
+            font-size: 2rem;
+            display: block;
+            margin-bottom: 1rem;
+            opacity: 0.6;
+        }
+
+        h1 {
+            font-size: 3.5rem;
+            font-weight: 400;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(180deg, var(--ink) 0%, var(--faded) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .subtitle {
+            font-style: italic;
+            color: var(--faded);
+            font-size: 1.1rem;
+        }
+
+        .api-key-section {
+            background: var(--ink);
+            color: var(--paper);
+            padding: 1.5rem 2rem;
+            margin-bottom: 2rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .api-key-section label {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .api-key-section input {
+            flex: 1;
+            min-width: 200px;
+            padding: 0.6rem 1rem;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.9rem;
+            border: none;
+            background: rgba(255,255,255,0.1);
+            color: var(--paper);
+            outline: none;
+        }
+
+        .api-key-section input::placeholder {
+            color: rgba(255,255,255,0.4);
+        }
+
+        .api-key-section input:focus {
+            background: rgba(255,255,255,0.2);
+        }
+
+        .api-key-status {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.75rem;
+            padding: 0.3rem 0.6rem;
+            border-radius: 2px;
+        }
+
+        .api-key-status.ready {
+            background: var(--positive);
+        }
+
+        .api-key-status.missing {
+            background: var(--negative);
+        }
+
+        .search-section {
+            background: var(--aged-paper);
+            border: 1px solid rgba(0,0,0,0.1);
+            padding: 2rem;
+            margin-bottom: 2rem;
+            position: relative;
+        }
+
+        .search-section::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: repeating-linear-gradient(
+                90deg,
+                var(--accent) 0px,
+                var(--accent) 10px,
+                transparent 10px,
+                transparent 20px
+            );
+        }
+
+        .search-row {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .search-input {
+            flex: 1;
+            padding: 0.8rem 1rem;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.95rem;
+            border: 2px solid var(--ink);
+            background: var(--paper);
+            outline: none;
+            transition: all 0.2s;
+        }
+
+        .search-input:focus {
+            background: white;
+            box-shadow: 4px 4px 0 var(--ink);
+        }
+
+        .btn {
+            padding: 0.8rem 1.5rem;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.85rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            border: 2px solid var(--ink);
+            cursor: pointer;
+            transition: all 0.15s;
+            background: var(--paper);
+            color: var(--ink);
+        }
+
+        .btn:hover {
+            background: var(--ink);
+            color: var(--paper);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-accent {
+            background: var(--accent);
+            color: white;
+            border-color: var(--accent);
+        }
+
+        .btn-accent:hover {
+            background: #6b0000;
+            border-color: #6b0000;
+        }
+
+        .selected-books {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            min-height: 3rem;
+            padding: 1rem;
+            background: var(--paper);
+            border: 1px dashed var(--faded);
+        }
+
+        .selected-books:empty::before {
+            content: "Selected texts will appear here...";
+            color: var(--faded);
+            font-style: italic;
+            font-size: 0.9rem;
+        }
+
+        .book-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.4rem 0.8rem;
+            background: var(--ink);
+            color: var(--paper);
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.75rem;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .book-tag button {
+            background: none;
+            border: none;
+            color: var(--paper);
+            cursor: pointer;
+            font-size: 1rem;
+            line-height: 1;
+            opacity: 0.7;
+        }
+
+        .book-tag button:hover {
+            opacity: 1;
+        }
+
+        .search-results {
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid rgba(0,0,0,0.1);
+            background: white;
+            display: none;
+        }
+
+        .search-results.active {
+            display: block;
+        }
+
+        .search-result {
+            padding: 1rem;
+            border-bottom: 1px solid rgba(0,0,0,0.05);
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+
+        .search-result:hover {
+            background: var(--highlight);
+        }
+
+        .search-result h3 {
+            font-size: 1rem;
+            font-weight: 400;
+            margin-bottom: 0.25rem;
+        }
+
+        .search-result .author {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.8rem;
+            color: var(--faded);
+        }
+
+        .controls {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            align-items: center;
+            margin-bottom: 2rem;
+            padding: 1.5rem;
+            background: var(--aged-paper);
+            border: 1px solid rgba(0,0,0,0.1);
+        }
+
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .control-group label {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--faded);
+        }
+
+        .control-group select {
+            padding: 0.5rem;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.85rem;
+            border: 2px solid var(--ink);
+            background: var(--paper);
+            cursor: pointer;
+        }
+
+        .output-section {
+            position: relative;
+        }
+
+        .output-section::before {
+            content: "— OUTPUT —";
+            display: block;
+            text-align: center;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.7rem;
+            letter-spacing: 0.2em;
+            color: var(--faded);
+            margin-bottom: 1rem;
+        }
+
+        .output {
+            min-height: 300px;
+            padding: 2.5rem;
+            background: white;
+            border: 1px solid rgba(0,0,0,0.1);
+            box-shadow: 
+                8px 8px 0 var(--aged-paper),
+                8px 8px 0 1px rgba(0,0,0,0.1);
+            font-size: 1.15rem;
+            line-height: 1.9;
+            position: relative;
+        }
+
+        .output::before {
+            content: """;
+            position: absolute;
+            top: 0.5rem;
+            left: 1rem;
+            font-size: 4rem;
+            color: var(--accent);
+            opacity: 0.3;
+            font-family: Georgia, serif;
+        }
+
+        .output p {
+            margin-bottom: 1rem;
+            text-indent: 1.5rem;
+        }
+
+        .output p:first-child {
+            text-indent: 0;
+        }
+
+        .output .source-marker {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.65rem;
+            vertical-align: super;
+            color: var(--accent);
+            margin-left: 2px;
+        }
+
+        .output.loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--faded);
+            font-style: italic;
+        }
+
+        .output.loading::after {
+            content: "";
+            width: 20px;
+            height: 20px;
+            border: 2px solid var(--faded);
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-left: 1rem;
+        }
+
+        .empty-state {
+            text-align: center;
+            color: var(--faded);
+            font-style: italic;
+        }
+
+        .legend {
+            margin-top: 1.5rem;
+            padding: 1rem;
+            background: var(--aged-paper);
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.75rem;
+        }
+
+        .legend h4 {
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .legend-marker {
+            color: var(--accent);
+            font-weight: bold;
+        }
+
+        /* Sentiment Analysis Section */
+        .sentiment-section {
+            margin-top: 2rem;
+            padding: 2rem;
+            background: white;
+            border: 1px solid rgba(0,0,0,0.1);
+            display: none;
+        }
+
+        .sentiment-section.active {
+            display: block;
+            animation: fadeIn 0.4s ease;
+        }
+
+        .sentiment-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid rgba(0,0,0,0.1);
+        }
+
+        .sentiment-header h3 {
+            font-size: 1.2rem;
+            font-weight: 400;
+        }
+
+        .sentiment-badge {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.75rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            padding: 0.4rem 0.8rem;
+            color: white;
+        }
+
+        .sentiment-badge.positive {
+            background: var(--positive);
+        }
+
+        .sentiment-badge.negative {
+            background: var(--negative);
+        }
+
+        .sentiment-badge.neutral {
+            background: var(--neutral);
+        }
+
+        .sentiment-meter {
+            height: 40px;
+            background: var(--aged-paper);
+            position: relative;
+            margin-bottom: 1.5rem;
+            overflow: hidden;
+        }
+
+        .sentiment-meter-fill {
+            position: absolute;
+            top: 0;
+            height: 100%;
+            transition: width 0.6s ease;
+        }
+
+        .sentiment-meter-fill.positive {
+            left: 50%;
+            background: linear-gradient(90deg, var(--neutral) 0%, var(--positive) 100%);
+        }
+
+        .sentiment-meter-fill.negative {
+            right: 50%;
+            background: linear-gradient(270deg, var(--neutral) 0%, var(--negative) 100%);
+        }
+
+        .sentiment-meter-center {
+            position: absolute;
+            left: 50%;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: var(--ink);
+            transform: translateX(-50%);
+        }
+
+        .sentiment-meter-labels {
+            display: flex;
+            justify-content: space-between;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.7rem;
+            color: var(--faded);
+            margin-top: 0.5rem;
+        }
+
+        .sentiment-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+        }
+
+        .sentiment-stat {
+            padding: 1rem;
+            background: var(--aged-paper);
+        }
+
+        .sentiment-stat-label {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--faded);
+            margin-bottom: 0.25rem;
+        }
+
+        .sentiment-stat-value {
+            font-size: 1.5rem;
+            font-weight: 400;
+        }
+
+        .sentiment-error {
+            padding: 1rem;
+            background: #fef2f2;
+            border: 1px solid var(--negative);
+            color: var(--negative);
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.85rem;
+        }
+
+        footer {
+            margin-top: 4rem;
+            text-align: center;
+            padding: 2rem;
+            border-top: 1px solid rgba(0,0,0,0.1);
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.75rem;
+            color: var(--faded);
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 600px) {
+            h1 { font-size: 2.5rem; }
+            .search-row { flex-direction: column; }
+            .controls { flex-direction: column; align-items: stretch; }
+            .output { padding: 1.5rem; }
+            .api-key-section { flex-direction: column; align-items: stretch; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>The Cut-Up Machine</h1>
+            <p class="subtitle">Remix literature from Project Gutenberg</p>
+        </header>
+
+        <section class="api-key-section">
+            <label for="apiKey">RapidAPI Key:</label>
+            <input 
+                type="password" 
+                id="apiKey" 
+                placeholder="Enter your X-RapidAPI-Key for sentiment analysis..."
+            >
+            <span class="api-key-status missing" id="apiStatus">Not Set</span>
+        </section>
+
+        <section class="search-section">
+            <div class="search-row">
+                <input 
+                    type="text" 
+                    class="search-input" 
+                    id="searchInput" 
+                    placeholder="Search for a book or author..."
+                >
+                <button class="btn" id="searchBtn">Search</button>
+            </div>
+
+            <div class="search-results" id="searchResults"></div>
+
+            <div class="selected-books" id="selectedBooks"></div>
+        </section>
+
+        <section class="controls">
+            <div class="control-group">
+                <label>Mode:</label>
+                <select id="remixMode">
+                    <option value="sentence">Sentence Shuffle</option>
+                    <option value="phrase">Phrase Splice</option>
+                    <option value="paragraph">Paragraph Weave</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label>Length:</label>
+                <select id="outputLength">
+                    <option value="short">Short (~100 words)</option>
+                    <option value="medium" selected>Medium (~200 words)</option>
+                    <option value="long">Long (~400 words)</option>
+                </select>
+            </div>
+
+            <button class="btn btn-accent" id="remixBtn" disabled>Generate Remix</button>
+        </section>
+
+        <section class="output-section">
+            <div class="output" id="output">
+                <p class="empty-state">Select at least two texts and click "Generate Remix" to create your cut-up.</p>
+            </div>
+
+            <div class="legend" id="legend" style="display: none;">
+                <h4>Sources</h4>
+                <div id="legendContent"></div>
+            </div>
+        </section>
+
+        <section class="sentiment-section" id="sentimentSection">
+            <div class="sentiment-header">
+                <h3>Sentiment Analysis</h3>
+                <span class="sentiment-badge" id="sentimentBadge">Analyzing...</span>
+            </div>
+
+            <div class="sentiment-meter">
+                <div class="sentiment-meter-fill positive" id="positiveFill" style="width: 0%;"></div>
+                <div class="sentiment-meter-fill negative" id="negativeFill" style="width: 0%;"></div>
+                <div class="sentiment-meter-center"></div>
+            </div>
+            <div class="sentiment-meter-labels">
+                <span>Negative</span>
+                <span>Neutral</span>
+                <span>Positive</span>
+            </div>
+
+            <div class="sentiment-details" id="sentimentDetails">
+                <div class="sentiment-stat">
+                    <div class="sentiment-stat-label">Confidence</div>
+                    <div class="sentiment-stat-value" id="confidenceValue">—</div>
+                </div>
+                <div class="sentiment-stat">
+                    <div class="sentiment-stat-label">Positive Score</div>
+                    <div class="sentiment-stat-value" id="positiveValue">—</div>
+                </div>
+                <div class="sentiment-stat">
+                    <div class="sentiment-stat-label">Negative Score</div>
+                    <div class="sentiment-stat-value" id="negativeValue">—</div>
+                </div>
+            </div>
+
+            <div class="sentiment-error" id="sentimentError" style="display: none;"></div>
+        </section>
+
+        <footer>
+            <p>Powered by the Gutendex API, Project Gutenberg & RapidAPI</p>
+            <p>Inspired by William S. Burroughs' cut-up technique</p>
+        </footer>
+    </div>
+
+    <script>
+        const GUTENDEX_URL = 'https://gutendex.com/books';
+        const SENTIMENT_API_URL = 'https://text-sentiment.p.rapidapi.com/analyze';
+        
+        const state = {
+            selectedBooks: [],
+            bookTexts: {},
+            isLoading: false,
+            currentRemixText: ''
+        };
+
+        // DOM Elements
+        const apiKeyInput = document.getElementById('apiKey');
+        const apiStatus = document.getElementById('apiStatus');
+        const searchInput = document.getElementById('searchInput');
+        const searchBtn = document.getElementById('searchBtn');
+        const searchResults = document.getElementById('searchResults');
+        const selectedBooks = document.getElementById('selectedBooks');
+        const remixBtn = document.getElementById('remixBtn');
+        const remixMode = document.getElementById('remixMode');
+        const outputLength = document.getElementById('outputLength');
+        const output = document.getElementById('output');
+        const legend = document.getElementById('legend');
+        const legendContent = document.getElementById('legendContent');
+        const sentimentSection = document.getElementById('sentimentSection');
+        const sentimentBadge = document.getElementById('sentimentBadge');
+        const positiveFill = document.getElementById('positiveFill');
+        const negativeFill = document.getElementById('negativeFill');
+        const confidenceValue = document.getElementById('confidenceValue');
+        const positiveValue = document.getElementById('positiveValue');
+        const negativeValue = document.getElementById('negativeValue');
+        const sentimentError = document.getElementById('sentimentError');
+        const sentimentDetails = document.getElementById('sentimentDetails');
+
+        // API Key handling
+        apiKeyInput.addEventListener('input', () => {
+            if (apiKeyInput.value.trim()) {
+                apiStatus.textContent = 'Ready';
+                apiStatus.classList.remove('missing');
+                apiStatus.classList.add('ready');
+            } else {
+                apiStatus.textContent = 'Not Set';
+                apiStatus.classList.remove('ready');
+                apiStatus.classList.add('missing');
+            }
+        });
+
+        // Search for books
+        async function searchBooks(query) {
+            try {
+                const response = await fetch(`${GUTENDEX_URL}?search=${encodeURIComponent(query)}`);
+                const data = await response.json();
+                return data.results.slice(0, 10);
+            } catch (error) {
+                console.error('Search failed:', error);
+                return [];
+            }
+        }
+
+        // Get plain text URL from book formats
+        function getTextUrl(book) {
+            const formats = book.formats || {};
+            for (const [key, url] of Object.entries(formats)) {
+                if (key.includes('text/plain') && url.endsWith('.txt')) {
+                    return url;
+                }
+            }
+            for (const [key, url] of Object.entries(formats)) {
+                if (key.includes('text/plain')) {
+                    return url;
+                }
+            }
+            return null;
+        }
+
+        // Fetch book text
+        async function fetchBookText(book) {
+            const textUrl = getTextUrl(book);
+            if (!textUrl) return null;
+
+            try {
+                const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(textUrl)}`;
+                const response = await fetch(proxyUrl);
+                const text = await response.text();
+                return cleanGutenbergText(text);
+            } catch (error) {
+                console.error('Failed to fetch text:', error);
+                return null;
+            }
+        }
+
+        // Clean Gutenberg boilerplate
+        function cleanGutenbergText(text) {
+            const startMarkers = [
+                '*** START OF THE PROJECT GUTENBERG',
+                '*** START OF THIS PROJECT GUTENBERG',
+                '*END*THE SMALL PRINT'
+            ];
+            
+            let startIndex = 0;
+            for (const marker of startMarkers) {
+                const idx = text.indexOf(marker);
+                if (idx !== -1) {
+                    startIndex = text.indexOf('\n', idx) + 1;
+                    break;
+                }
+            }
+
+            const endMarkers = [
+                '*** END OF THE PROJECT GUTENBERG',
+                '*** END OF THIS PROJECT GUTENBERG',
+                'End of the Project Gutenberg',
+                'End of Project Gutenberg'
+            ];
+            
+            let endIndex = text.length;
+            for (const marker of endMarkers) {
+                const idx = text.indexOf(marker);
+                if (idx !== -1) {
+                    endIndex = idx;
+                    break;
+                }
+            }
+
+            return text.slice(startIndex, endIndex).trim();
+        }
+
+        // Extract sentences from text
+        function extractSentences(text) {
+            const sentences = text
+                .replace(/\r\n/g, '\n')
+                .replace(/\n{2,}/g, '\n\n')
+                .split(/(?<=[.!?])\s+/)
+                .map(s => s.trim())
+                .filter(s => s.length > 20 && s.length < 500)
+                .filter(s => !s.match(/^[A-Z\s]+$/));
+            
+            return sentences;
+        }
+
+        // Extract random passages
+        function getRandomPassages(text, count = 5) {
+            const sentences = extractSentences(text);
+            if (sentences.length < count) return sentences;
+            
+            const selected = [];
+            const used = new Set();
+            
+            while (selected.length < count && used.size < sentences.length) {
+                const idx = Math.floor(Math.random() * sentences.length);
+                if (!used.has(idx)) {
+                    used.add(idx);
+                    selected.push(sentences[idx]);
+                }
+            }
+            
+            return selected;
+        }
+
+        // Remix modes
+        function sentenceShuffle(bookData, count) {
+            const allSentences = [];
+            
+            for (const [bookId, text] of Object.entries(bookData)) {
+                const passages = getRandomPassages(text, Math.ceil(count / Object.keys(bookData).length));
+                passages.forEach(p => allSentences.push({ text: p, bookId }));
+            }
+            
+            for (let i = allSentences.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [allSentences[i], allSentences[j]] = [allSentences[j], allSentences[i]];
+            }
+            
+            return allSentences.slice(0, count);
+        }
+
+        function phraseSplice(bookData, count) {
+            const allSentences = [];
+            
+            for (const [bookId, text] of Object.entries(bookData)) {
+                const passages = getRandomPassages(text, count);
+                passages.forEach(p => allSentences.push({ text: p, bookId }));
+            }
+            
+            const spliced = [];
+            for (let i = 0; i < Math.min(count, allSentences.length - 1); i++) {
+                const s1 = allSentences[i];
+                const s2 = allSentences[(i + 1) % allSentences.length];
+                
+                const words1 = s1.text.split(' ');
+                const words2 = s2.text.split(' ');
+                
+                const midpoint1 = Math.floor(words1.length / 2);
+                const midpoint2 = Math.floor(words2.length / 2);
+                
+                const newText = [...words1.slice(0, midpoint1), ...words2.slice(midpoint2)].join(' ');
+                spliced.push({ 
+                    text: newText, 
+                    bookId: `${s1.bookId}+${s2.bookId}`,
+                    mixed: true 
+                });
+            }
+            
+            return spliced;
+        }
+
+        function paragraphWeave(bookData, count) {
+            const paragraphs = [];
+            const sentencesPerParagraph = 3;
+            
+            for (let i = 0; i < Math.ceil(count / sentencesPerParagraph); i++) {
+                const bookIds = Object.keys(bookData);
+                const bookId = bookIds[i % bookIds.length];
+                const text = bookData[bookId];
+                
+                const sentences = getRandomPassages(text, sentencesPerParagraph);
+                const paragraph = sentences.map(s => ({ text: s, bookId }));
+                paragraphs.push(...paragraph);
+            }
+            
+            return paragraphs.slice(0, count);
+        }
+
+        // Sentiment Analysis
+        async function analyzeSentiment(text) {
+            const apiKey = apiKeyInput.value.trim();
+            
+            if (!apiKey) {
+                return { error: 'No API key provided. Enter your RapidAPI key above to enable sentiment analysis.' };
+            }
+
+            try {
+                const response = await fetch(SENTIMENT_API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'X-RapidAPI-Key': apiKey,
+                        'X-RapidAPI-Host': 'text-sentiment.p.rapidapi.com'
+                    },
+                    body: `text=${encodeURIComponent(text)}`
+                });
+
+                if (!response.ok) {
+                    if (response.status === 401 || response.status === 403) {
+                        return { error: 'Invalid API key. Please check your RapidAPI key.' };
+                    }
+                    return { error: `API error: ${response.status}` };
+                }
+
+                const data = await response.json();
+                return data;
+            } catch (error) {
+                console.error('Sentiment analysis failed:', error);
+                return { error: 'Failed to analyze sentiment. Check your connection and API key.' };
+            }
+        }
+
+        // Display sentiment results
+        function displaySentiment(result) {
+            sentimentSection.classList.add('active');
+            sentimentError.style.display = 'none';
+            sentimentDetails.style.display = 'grid';
+
+            if (result.error) {
+                sentimentError.textContent = result.error;
+                sentimentError.style.display = 'block';
+                sentimentDetails.style.display = 'none';
+                sentimentBadge.textContent = 'Error';
+                sentimentBadge.className = 'sentiment-badge neutral';
+                positiveFill.style.width = '0%';
+                negativeFill.style.width = '0%';
+                return;
+            }
+
+            // Parse the response - handle different API response formats
+            const sentiment = result.sentiment || result.label || result.type || 'neutral';
+            const posScore = result.pos_percent || result.positive || result.pos || 0;
+            const negScore = result.neg_percent || result.negative || result.neg || 0;
+            const confidence = result.confidence || result.score || result.ratio || Math.max(posScore, negScore);
+
+            // Update badge
+            const sentimentText = sentiment.charAt(0).toUpperCase() + sentiment.slice(1);
+            sentimentBadge.textContent = sentimentText;
+            
+            if (sentiment.toLowerCase().includes('pos')) {
+                sentimentBadge.className = 'sentiment-badge positive';
+            } else if (sentiment.toLowerCase().includes('neg')) {
+                sentimentBadge.className = 'sentiment-badge negative';
+            } else {
+                sentimentBadge.className = 'sentiment-badge neutral';
+            }
+
+            // Update meter
+            let posPercent = typeof posScore === 'string' ? parseFloat(posScore) : (posScore > 1 ? posScore : posScore * 100);
+            let negPercent = typeof negScore === 'string' ? parseFloat(negScore) : (negScore > 1 ? negScore : negScore * 100);
+            
+            positiveFill.style.width = `${Math.min(posPercent / 2, 50)}%`;
+            negativeFill.style.width = `${Math.min(negPercent / 2, 50)}%`;
+
+            // Update stats
+            const confDisplay = typeof confidence === 'number' 
+                ? (confidence > 1 ? `${confidence.toFixed(1)}%` : `${(confidence * 100).toFixed(1)}%`)
+                : confidence;
+            confidenceValue.textContent = confDisplay;
+            
+            positiveValue.textContent = typeof posScore === 'number' 
+                ? (posScore > 1 ? `${posScore.toFixed(1)}%` : `${(posScore * 100).toFixed(1)}%`)
+                : posScore;
+            negativeValue.textContent = typeof negScore === 'number' 
+                ? (negScore > 1 ? `${negScore.toFixed(1)}%` : `${(negScore * 100).toFixed(1)}%`)
+                : negScore;
+        }
+
+        // Generate remix
+        async function generateRemix() {
+            if (state.selectedBooks.length < 2) return;
+            
+            output.innerHTML = '';
+            output.classList.add('loading');
+            output.textContent = 'Fetching and remixing texts';
+            remixBtn.disabled = true;
+            sentimentSection.classList.remove('active');
+
+            // Fetch any missing texts
+            for (const book of state.selectedBooks) {
+                if (!state.bookTexts[book.id]) {
+                    const text = await fetchBookText(book);
+                    if (text) {
+                        state.bookTexts[book.id] = text;
+                    }
+                }
+            }
+
+            // Check we have enough texts
+            const availableTexts = state.selectedBooks.filter(b => state.bookTexts[b.id]);
+            if (availableTexts.length < 2) {
+                output.classList.remove('loading');
+                output.innerHTML = '<p class="empty-state">Could not fetch enough texts. Try different books.</p>';
+                remixBtn.disabled = false;
+                return;
+            }
+
+            // Build book data object
+            const bookData = {};
+            availableTexts.forEach(book => {
+                bookData[book.id] = state.bookTexts[book.id];
+            });
+
+            // Determine sentence count based on length
+            const lengthMap = { short: 6, medium: 12, long: 24 };
+            const count = lengthMap[outputLength.value];
+
+            // Apply remix mode
+            let remixed;
+            switch (remixMode.value) {
+                case 'phrase':
+                    remixed = phraseSplice(bookData, count);
+                    break;
+                case 'paragraph':
+                    remixed = paragraphWeave(bookData, count);
+                    break;
+                default:
+                    remixed = sentenceShuffle(bookData, count);
+            }
+
+            // Render output
+            output.classList.remove('loading');
+            output.innerHTML = '';
+
+            const bookIndex = {};
+            state.selectedBooks.forEach((book, idx) => {
+                bookIndex[book.id] = idx + 1;
+            });
+
+            let plainText = '';
+            let currentParagraph = document.createElement('p');
+            remixed.forEach((item, idx) => {
+                const span = document.createElement('span');
+                span.textContent = item.text + ' ';
+                plainText += item.text + ' ';
+                
+                if (!item.mixed) {
+                    const marker = document.createElement('sup');
+                    marker.className = 'source-marker';
+                    marker.textContent = `[${bookIndex[item.bookId]}]`;
+                    span.appendChild(marker);
+                }
+                
+                currentParagraph.appendChild(span);
+                
+                if ((idx + 1) % 4 === 0 && idx < remixed.length - 1) {
+                    output.appendChild(currentParagraph);
+                    currentParagraph = document.createElement('p');
+                }
+            });
+            
+            if (currentParagraph.hasChildNodes()) {
+                output.appendChild(currentParagraph);
+            }
+
+            state.currentRemixText = plainText.trim();
+
+            // Update legend
+            legend.style.display = 'block';
+            legendContent.innerHTML = state.selectedBooks
+                .map((book, idx) => `
+                    <div class="legend-item">
+                        <span class="legend-marker">[${idx + 1}]</span>
+                        <span>${book.title} — ${book.author}</span>
+                    </div>
+                `).join('');
+
+            remixBtn.disabled = false;
+
+            // Run sentiment analysis
+            if (apiKeyInput.value.trim()) {
+                sentimentSection.classList.add('active');
+                sentimentBadge.textContent = 'Analyzing...';
+                sentimentBadge.className = 'sentiment-badge neutral';
+                
+                const sentimentResult = await analyzeSentiment(state.currentRemixText);
+                displaySentiment(sentimentResult);
+            }
+        }
+
+        // Render selected books
+        function renderSelectedBooks() {
+            selectedBooks.innerHTML = state.selectedBooks.map(book => `
+                <span class="book-tag" data-id="${book.id}">
+                    ${book.title.slice(0, 30)}${book.title.length > 30 ? '...' : ''}
+                    <button onclick="removeBook(${book.id})">&times;</button>
+                </span>
+            `).join('');
+            
+            remixBtn.disabled = state.selectedBooks.length < 2;
+        }
+
+        // Add book to selection
+        function addBook(book) {
+            if (state.selectedBooks.find(b => b.id === book.id)) return;
+            if (state.selectedBooks.length >= 5) {
+                alert('Maximum 5 books allowed');
+                return;
+            }
+            
+            const author = book.authors?.[0]?.name || 'Unknown';
+            state.selectedBooks.push({
+                id: book.id,
+                title: book.title,
+                author: author,
+                formats: book.formats
+            });
+            
+            renderSelectedBooks();
+            searchResults.classList.remove('active');
+            searchInput.value = '';
+        }
+
+        // Remove book from selection
+        window.removeBook = function(id) {
+            state.selectedBooks = state.selectedBooks.filter(b => b.id !== id);
+            delete state.bookTexts[id];
+            renderSelectedBooks();
+        };
+
+        // Event listeners
+        searchBtn.addEventListener('click', async () => {
+            const query = searchInput.value.trim();
+            if (!query) return;
+            
+            searchBtn.disabled = true;
+            searchBtn.textContent = 'Searching...';
+            
+            const results = await searchBooks(query);
+            
+            searchResults.innerHTML = results.length ? results.map(book => {
+                const author = book.authors?.[0]?.name || 'Unknown';
+                return `
+                    <div class="search-result" data-book='${JSON.stringify(book).replace(/'/g, "&#39;")}'>
+                        <h3>${book.title}</h3>
+                        <span class="author">${author}</span>
+                    </div>
+                `;
+            }).join('') : '<div class="search-result"><p>No results found</p></div>';
+            
+            searchResults.classList.add('active');
+            searchBtn.disabled = false;
+            searchBtn.textContent = 'Search';
+        });
+
+        searchInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') searchBtn.click();
+        });
+
+        searchResults.addEventListener('click', (e) => {
+            const result = e.target.closest('.search-result');
+            if (result && result.dataset.book) {
+                const book = JSON.parse(result.dataset.book);
+                addBook(book);
+            }
+        });
+
+        remixBtn.addEventListener('click', generateRemix);
+
+        // Close search results when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.search-section')) {
+                searchResults.classList.remove('active');
+            }
+        });
+    </script>
+</body>
+</html>
