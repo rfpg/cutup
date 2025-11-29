@@ -690,9 +690,16 @@
 
     <script>
         const GUTENDEX_URL = 'https://gutendex.com/books';
-        // Using Twinword Sentiment Analysis API - better free tier limits
+        // Using Twinword Sentiment Analysis API
         const SENTIMENT_API_URL = 'https://twinword-sentiment-analysis.p.rapidapi.com/analyze/';
-        const SENTIMENT_API_HOST = 'sentiment-analysis.p.rapidapi.com';
+        const SENTIMENT_API_HOST = 'twinword-sentiment-analysis.p.rapidapi.com';
+        
+        // CORS proxies to try (in order)
+        const CORS_PROXIES = [
+            (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+            (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`,
+            (url) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`
+        ];
         
         const state = {
             selectedBooks: [],
@@ -752,33 +759,68 @@
         // Get plain text URL from book formats
         function getTextUrl(book) {
             const formats = book.formats || {};
-            for (const [key, url] of Object.entries(formats)) {
-                if (key.includes('text/plain') && url.endsWith('.txt')) {
-                    return url;
+            
+            // Priority order for text formats
+            const priorities = [
+                'text/plain; charset=utf-8',
+                'text/plain; charset=us-ascii', 
+                'text/plain'
+            ];
+            
+            for (const format of priorities) {
+                for (const [key, url] of Object.entries(formats)) {
+                    if (key.includes(format) && (url.includes('.txt') || url.includes('txt'))) {
+                        return url;
+                    }
                 }
             }
+            
+            // Fallback: any text/plain format
             for (const [key, url] of Object.entries(formats)) {
                 if (key.includes('text/plain')) {
                     return url;
                 }
             }
+            
             return null;
         }
 
-        // Fetch book text
+        // Fetch book text with fallback proxies
         async function fetchBookText(book) {
-            const textUrl = getTextUrl(book);
+            let textUrl = getTextUrl(book);
             if (!textUrl) return null;
 
-            try {
-                const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(textUrl)}`;
-                const response = await fetch(proxyUrl);
-                const text = await response.text();
-                return cleanGutenbergText(text);
-            } catch (error) {
-                console.error('Failed to fetch text:', error);
-                return null;
+            // Try to construct a more reliable Gutenberg URL
+            // Extract book ID and use the direct cache URL
+            const bookId = book.id;
+            const gutenbergUrls = [
+                `https://www.gutenberg.org/cache/epub/${bookId}/pg${bookId}.txt`,
+                `https://www.gutenberg.org/files/${bookId}/${bookId}-0.txt`,
+                `https://www.gutenberg.org/files/${bookId}/${bookId}.txt`,
+                textUrl
+            ];
+
+            for (const url of gutenbergUrls) {
+                for (const proxyFn of CORS_PROXIES) {
+                    try {
+                        const proxyUrl = proxyFn(url);
+                        const response = await fetch(proxyUrl);
+                        
+                        if (response.ok) {
+                            const text = await response.text();
+                            // Verify it's actually book text (not an error page)
+                            if (text.length > 1000 && !text.includes('<!DOCTYPE')) {
+                                return cleanGutenbergText(text);
+                            }
+                        }
+                    } catch (error) {
+                        console.log(`Proxy failed for ${url}, trying next...`);
+                    }
+                }
             }
+            
+            console.error('All proxies failed for book:', book.title);
+            return null;
         }
 
         // Clean Gutenberg boilerplate
@@ -922,10 +964,17 @@
             }
 
             // Truncate text if too long (API limits)
-            const truncatedText = text.length > 1000 ? text.substring(0, 1000) : text;
+            const truncatedText = text.length > 500 ? text.substring(0, 500) : text;
+            
+            // Don't send empty text
+            if (!truncatedText.trim()) {
+                return { error: 'No text to analyze.' };
+            }
 
             try {
-                const response = await fetch(SENTIMENT_API_URL + '?text=' + encodeURIComponent(truncatedText), {
+                const url = SENTIMENT_API_URL + '?text=' + encodeURIComponent(truncatedText);
+                
+                const response = await fetch(url, {
                     method: 'GET',
                     headers: {
                         'X-RapidAPI-Key': apiKey,
@@ -934,11 +983,14 @@
                 });
 
                 if (!response.ok) {
-                    if (response.status === 401 || response.status === 403) {
+                    if (response.status === 401) {
                         return { error: 'Invalid API key. Please check your RapidAPI key.' };
                     }
+                    if (response.status === 403) {
+                        return { error: 'Access forbidden. Make sure you are subscribed to the Twinword Sentiment Analysis API on RapidAPI.' };
+                    }
                     if (response.status === 429) {
-                        return { error: 'Rate limit exceeded. Please wait a moment and try again, or check your RapidAPI subscription.' };
+                        return { error: 'Rate limit exceeded. Please wait a moment and try again.' };
                     }
                     return { error: `API error: ${response.status}` };
                 }
