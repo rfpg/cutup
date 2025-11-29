@@ -530,6 +530,10 @@
             background: var(--aged-paper);
         }
 
+        .sentiment-stat.full-width {
+            grid-column: 1 / -1;
+        }
+
         .sentiment-stat-label {
             font-family: 'IBM Plex Mono', monospace;
             font-size: 0.7rem;
@@ -593,7 +597,7 @@
             <input 
                 type="password" 
                 id="apiKey" 
-                placeholder="Enter your X-RapidAPI-Key for sentiment analysis..."
+                placeholder="Enter your X-RapidAPI-Key..."
             >
             <span class="api-key-status missing" id="apiStatus">Not Set</span>
         </section>
@@ -670,12 +674,12 @@
                     <div class="sentiment-stat-value" id="confidenceValue">—</div>
                 </div>
                 <div class="sentiment-stat">
-                    <div class="sentiment-stat-label">Positive Score</div>
+                    <div class="sentiment-stat-label">Score</div>
                     <div class="sentiment-stat-value" id="positiveValue">—</div>
                 </div>
-                <div class="sentiment-stat">
-                    <div class="sentiment-stat-label">Negative Score</div>
-                    <div class="sentiment-stat-value" id="negativeValue">—</div>
+                <div class="sentiment-stat full-width" id="summaryContainer" style="display: none;">
+                    <div class="sentiment-stat-label">AI Analysis</div>
+                    <div class="sentiment-stat-value" id="summaryValue" style="font-size: 1rem; line-height: 1.4;">—</div>
                 </div>
             </div>
 
@@ -690,9 +694,9 @@
 
     <script>
         const GUTENDEX_URL = 'https://gutendex.com/books';
-        // Using Twinword Sentiment Analysis API
-        const SENTIMENT_API_URL = 'https://twinword-sentiment-analysis.p.rapidapi.com/analyze/';
-        const SENTIMENT_API_HOST = 'twinword-sentiment-analysis.p.rapidapi.com';
+        // Using Open AI21 LLM API via RapidAPI
+        const LLM_API_URL = 'https://open-ai21.p.rapidapi.com/conversationllama';
+        const LLM_API_HOST = 'open-ai21.p.rapidapi.com';
         
         // CORS proxies to try (in order)
         const CORS_PROXIES = [
@@ -955,7 +959,7 @@
             return paragraphs.slice(0, count);
         }
 
-        // Sentiment Analysis
+        // Sentiment Analysis using LLM
         async function analyzeSentiment(text) {
             const apiKey = apiKeyInput.value.trim();
             
@@ -963,40 +967,92 @@
                 return { error: 'No API key provided. Enter your RapidAPI key above to enable sentiment analysis.' };
             }
 
-            // Truncate text if too long (API limits)
-            const truncatedText = text.length > 500 ? text.substring(0, 500) : text;
+            // Truncate text if too long
+            const truncatedText = text.length > 800 ? text.substring(0, 800) : text;
             
-            // Don't send empty text
             if (!truncatedText.trim()) {
                 return { error: 'No text to analyze.' };
             }
 
+            const prompt = `Analyze the sentiment of the following text. Respond with ONLY a JSON object in this exact format, no other text:
+{"sentiment": "positive" or "negative" or "neutral", "score": number from -1 to 1, "confidence": number from 0 to 1, "summary": "brief 10 word summary of emotional tone"}
+
+Text to analyze:
+"${truncatedText}"`;
+
             try {
-                const url = SENTIMENT_API_URL + '?text=' + encodeURIComponent(truncatedText);
-                
-                const response = await fetch(url, {
-                    method: 'GET',
+                const response = await fetch(LLM_API_URL, {
+                    method: 'POST',
                     headers: {
+                        'Content-Type': 'application/json',
                         'X-RapidAPI-Key': apiKey,
-                        'X-RapidAPI-Host': SENTIMENT_API_HOST
-                    }
+                        'X-RapidAPI-Host': LLM_API_HOST
+                    },
+                    body: JSON.stringify({
+                        messages: [
+                            { role: 'user', content: prompt }
+                        ],
+                        web_access: false
+                    })
                 });
 
                 if (!response.ok) {
-                    if (response.status === 401) {
-                        return { error: 'Invalid API key. Please check your RapidAPI key.' };
-                    }
-                    if (response.status === 403) {
-                        return { error: 'Access forbidden. Make sure you are subscribed to the Twinword Sentiment Analysis API on RapidAPI.' };
+                    if (response.status === 401 || response.status === 403) {
+                        return { error: 'Invalid API key or not subscribed. Check your RapidAPI subscription.' };
                     }
                     if (response.status === 429) {
-                        return { error: 'Rate limit exceeded. Please wait a moment and try again.' };
+                        return { error: 'Rate limit exceeded. Please wait and try again.' };
                     }
                     return { error: `API error: ${response.status}` };
                 }
 
                 const data = await response.json();
-                return data;
+                
+                // Extract the LLM response
+                let llmResponse = data.result || data.response || data.message || data.content || '';
+                
+                // If response is nested
+                if (typeof llmResponse === 'object') {
+                    llmResponse = llmResponse.content || llmResponse.text || JSON.stringify(llmResponse);
+                }
+                
+                // Try to parse JSON from the response
+                try {
+                    // Find JSON in the response
+                    const jsonMatch = llmResponse.match(/\{[\s\S]*?\}/);
+                    if (jsonMatch) {
+                        const parsed = JSON.parse(jsonMatch[0]);
+                        return {
+                            type: parsed.sentiment || 'neutral',
+                            score: parsed.score || 0,
+                            ratio: parsed.confidence || Math.abs(parsed.score || 0),
+                            summary: parsed.summary || ''
+                        };
+                    }
+                } catch (parseError) {
+                    console.log('Could not parse JSON, extracting sentiment from text');
+                }
+                
+                // Fallback: extract sentiment from plain text response
+                const lowerResponse = llmResponse.toLowerCase();
+                let sentiment = 'neutral';
+                let score = 0;
+                
+                if (lowerResponse.includes('positive')) {
+                    sentiment = 'positive';
+                    score = 0.6;
+                } else if (lowerResponse.includes('negative')) {
+                    sentiment = 'negative';
+                    score = -0.6;
+                }
+                
+                return {
+                    type: sentiment,
+                    score: score,
+                    ratio: 0.7,
+                    summary: llmResponse.substring(0, 100)
+                };
+                
             } catch (error) {
                 console.error('Sentiment analysis failed:', error);
                 return { error: 'Failed to analyze sentiment. Check your connection and API key.' };
@@ -1009,6 +1065,9 @@
             sentimentError.style.display = 'none';
             sentimentDetails.style.display = 'grid';
 
+            const summaryContainer = document.getElementById('summaryContainer');
+            const summaryValue = document.getElementById('summaryValue');
+
             if (result.error) {
                 sentimentError.textContent = result.error;
                 sentimentError.style.display = 'block';
@@ -1020,11 +1079,10 @@
                 return;
             }
 
-            // Twinword API response format:
-            // { type: "positive"/"negative"/"neutral", score: -1 to 1, ratio: 0 to 1 }
             const sentiment = result.type || 'neutral';
-            const score = result.score || 0; // -1 (negative) to 1 (positive)
-            const ratio = result.ratio || 0; // confidence 0 to 1
+            const score = result.score || 0;
+            const ratio = result.ratio || Math.abs(score);
+            const summary = result.summary || '';
 
             // Update badge
             const sentimentText = sentiment.charAt(0).toUpperCase() + sentiment.slice(1);
@@ -1039,7 +1097,6 @@
             }
 
             // Update meter based on score (-1 to 1)
-            // Positive scores fill right, negative scores fill left
             if (score >= 0) {
                 positiveFill.style.width = `${Math.min(score * 50, 50)}%`;
                 negativeFill.style.width = '0%';
@@ -1049,14 +1106,16 @@
             }
 
             // Update stats
-            confidenceValue.textContent = `${(ratio * 100).toFixed(1)}%`;
+            confidenceValue.textContent = `${(ratio * 100).toFixed(0)}%`;
+            positiveValue.textContent = score.toFixed(2);
             
-            // Calculate positive/negative from score
-            const posPercent = score > 0 ? score * 100 : 0;
-            const negPercent = score < 0 ? Math.abs(score) * 100 : 0;
-            
-            positiveValue.textContent = `${posPercent.toFixed(1)}%`;
-            negativeValue.textContent = `${negPercent.toFixed(1)}%`;
+            // Show summary if available
+            if (summary) {
+                summaryContainer.style.display = 'block';
+                summaryValue.textContent = summary;
+            } else {
+                summaryContainer.style.display = 'none';
+            }
         }
 
         // Generate remix
